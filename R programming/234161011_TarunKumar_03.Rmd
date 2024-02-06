@@ -1,0 +1,387 @@
+---
+title: "Wine data analysis"
+author: "Tarun Kumar"
+date: "2024-02-01"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Introduction
+
+White wine is a popular beverage enjoyed by millions around the world for its refreshing taste and versatility. Understanding the factors that contribute to the quality of white wine is of great interest to winemakers, consumers, and researchers alike. In this report, we analyze a dataset containing information on various chemical properties of white wine, as well as its quality rating.
+
+The dataset comprises 4898 observations and 12 variables, providing a comprehensive overview of key characteristics that may influence white wine quality. These variables include measures such as fixed acidity, volatile acidity, citric acid content, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH level, sulphates, alcohol content, and the quality rating assigned to each wine.
+
+Our objective is to explore the relationships between these chemical properties and wine quality, with a particular focus on identifying significant factors that contribute to the perception of high-quality white wine. By leveraging statistical analysis and visualization techniques, we aim to uncover patterns, trends, and insights within the dataset that can inform both industry practices and consumer preferences.
+
+
+
+## univariate analysis
+
+```{r}
+#load the CSV data into a data frame
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+df <- read.csv("Sem2/downloads/white_wine_data_1.csv")
+str(df)
+
+```
+```{r}
+summary(df)
+```
+By presenting the summary statistics for the dataset, we can gain an initial understanding of the varying value ranges associated with each attribute. It becomes apparent that numerous characteristics display considerable outliers, given that the maximum values deviate significantly from their respective third quantiles.
+
+
+```{r}
+column_names <- names(df)
+print(column_names)
+```
+These are the features in the wine dataset. Upon close examination of the dataset, I have observed that the most suitable choice for the target vector is the wine quality. The reason behind this decision is straightforward: the wine quality is a pivotal feature in this dataset. Companies are keen to understand the factors influencing quality to enhance their product, which, in turn, has a direct impact on sales. Therefore, I will select the quality of wine as the target feature.
+
+```{r}
+df %>%
+  ggplot(aes(x = factor(quality))) +
+  geom_bar(fill = "skyblue", color = "black") +
+  labs(title = "Wine Quality Distribution",
+       x = "Quality",
+       y = "Count") +
+  theme_minimal()
+
+```
+
+The distribution of wine quality appears to be relatively symmetrical. The majority of wines are rated with a quality score of 6. None of the wines received the maximum score of 10, while the lowest-rated wines were assigned a score of 3.
+
+
+**Residual sugar**
+```{r}
+p1 <- ggplot(df, aes(x='',y = residual.sugar)) + geom_boxplot(fill = "blue") 
+p2 <- ggplot(df, aes(x = residual.sugar)) + geom_histogram() +labs(x="residual sugar concentration")
+
+grid.arrange(p2, p1, nrow = 1)
+```
+In general, the wines in the dataset seem to exhibit low concentrations of residual sugar. The positive skewness in the data results in a mean value (5.4) that is higher than the median (3.0). Notably, there is an extreme outlier with a residual sugar concentration of around 65 g/L.
+
+
+
+**Density**
+```{r}
+p1 <- ggplot(df, aes(x='',y = density)) + geom_boxplot(fill = "blue") 
+p2 <- ggplot(df, aes(x = density)) + geom_histogram(bins=30) +labs(x="density")
+
+grid.arrange(p2, p1, nrow = 1)
+```
+density of wine have a narrow distribution with very low variance. While a few outliers exist around 1.01 and 1.04 g/cm3, the majority of wines exhibit a density ranging between 0.99 and 1.00 g/cm3.
+
+
+**Alcohol**
+```{r}
+p1 <- ggplot(df, aes(x='',y = alcohol)) + geom_boxplot(fill = "blue") 
+p2 <- ggplot(df, aes(x = alcohol)) + geom_histogram(bins=30) +labs(x="alcohol content")
+
+grid.arrange(p2, p1, nrow = 1)
+```
+The alcohol content of the wines in the dataset spans from 8 to 15 vol%. The median is approximately 10 vol%. The distribution is notably broad, indicating positive skewness in the data.
+
+
+**Acidity**
+```{r}
+p1 <- ggplot(df, aes(x = fixed.acidity)) +
+  geom_histogram(binwidth = 0.5, fill = "skyblue") + labs(title = "Fixed Acidity", x = "fixed acidity")
+
+p2 <- ggplot(df, aes(x = volatile.acidity)) +geom_histogram(binwidth = 0.1, fill = "skyblue") +labs(title = "Volatile Acidity", x = "volatile acidity")
+
+p3 <- ggplot(df, aes(x = citric.acid)) +geom_histogram(binwidth = 0.1, fill = "skyblue") +labs(title = "Citric Acid", x = "citric Acid")
+p4 <- ggplot(df, aes(x = pH)) + geom_histogram(binwidth = 0.1, fill = "skyblue") +labs(title = "pH", x = "pH")
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+```
+
+
+ **Fixed and volatile acidity:** Both distributions exhibit positive skewness, indicating that most wines have lower acidity values, with a smaller tail extending towards higher values.
+ 
+ **Citric acid:** The distribution shows an "edge peak", suggesting a significant portion of wines have very low citric acid concentrations near 0, with a smaller number spread across higher values. 
+ 
+ **pH:** The distribution appears relatively symmetrical, suggesting a more even spread of pH values across the dataset. This aligns with pH ranges observed in wines.
+
+```{r}
+p1 <- ggplot(df, aes(y = fixed.acidity)) + geom_boxplot(fill = "skyblue") 
+p2 <- ggplot(df, aes(y = volatile.acidity)) + geom_boxplot(fill = "skyblue")
+p3 <- ggplot(df, aes(y = citric.acid)) +geom_boxplot(fill = "skyblue") 
+p4 <- ggplot(df, aes(y = pH)) +geom_boxplot(fill = "skyblue")
+grid.arrange(p1, p2, p3, p4, nrow = 1)
+
+```
+When examining the acidity parameters through boxplots, a similar pattern emerges. Both fixed and volatile acidity exhibit long positive tails in their distributions, indicating a significant spread of concentrations. In contrast, the distributions for citric acid and pH appear narrower, suggesting a more concentrated range of values for these parameters.
+
+
+## Bivariate analysis and Linear Regression
+
+**Correlation Matrix**
+```{r}
+# Load the required libraries
+library(ggplot2)
+library(reshape2)  # For melting the correlation matrix
+
+
+
+# Compute the correlation matrix
+correlation_matrix <- cor(df)
+#print(correlation_matrix)
+
+# Melt the correlation matrix for plotting
+correlation_data <- melt(correlation_matrix)
+
+# Plot the correlation matrix as a heatmap
+ggplot(data = correlation_data, aes(x=Var1, y=Var2, fill=value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0, limit = c(-1,1), space = "Lab", name="Correlation") +
+  geom_text(aes(label=sprintf("%.2f", value)), color="black", size=3) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1),
+        axis.title = element_blank(),
+        legend.title.align=0.5) +
+  labs(fill="Correlation")
+
+```
+
+Observation from correlation matrix and plot:
+
+- There is a positive correlation between alcohol content and wine quality and negative with density.
+- The correlation between wine quality and citric acis, as well as between wine quality and sulfur dioxide ratio, is very low.
+- Wine quality exhibits a slight negative correlation with volatile acidity.
+- There appears to be a relationship between sulfur dioxide and residual sugar in wines.
+- We anticipate that alcohol content and residual sugar concentration will influence wine density.
+- There is a correlation between fixed acidity and total fixed acidity, as the former is a component of the latter.
+- Similarly, there is a relationship between free sulfur dioxide, total sulfur dioxide, and the sulfur dioxide ratio.
+- Color demonstrates relationships with density, residual sugar, total sulfur dioxide, and volatile acidity.
+
+
+
+## Simple Linear Regression
+
+we have familiarized ourselves with the features, we can proceed to analyze the correlation between each feature and the target vector. We'll employ a simple linear regression approach and visualize the relationships to gain insights into the dependency of the target vector on the features.
+
+
+```{r}
+# Perform simple linear regression for each feature with quality
+features <- c("fixed.acidity", "volatile.acidity", "citric.acid", "residual.sugar",
+              "chlorides", "free.sulfur.dioxide", "total.sulfur.dioxide",
+              "density", "pH", "sulphates", "alcohol")
+
+# Loop through each feature and fit a linear regression model
+for (feat in features) {
+  model <- lm(quality ~ ., data = df[, c(feat, "quality")])
+  
+   # Plot the data points
+  plot(df[[feat]], df$quality, main = paste("Quality vs", feat),
+       xlab = feat, ylab = "Quality", pch = 19, col = "blue")
+  
+  # Add the fitted line to the plot
+  abline(model, col = "red")
+  
+  # Print the summary of the linear regression model
+  cat("Feature:", feat, "\n")
+  print(summary(model))
+  cat("\n")
+}
+```
+
+### Simple Linear Regression Analysis
+
+Above are the result of simple linear regression between each feature and target feature(wine quality), apart from this i have plotted both feature and wine quality and showed regression lines.
+  
+
+**Significance Testing with T-Statistics and P-Values**:
+   In each result of linear regression we can observe t-statistics and p-value.t-statistics are used to determine the statistical significance of each independent variable in relation to the dependent variable while controlling for the other independent variables in the model. For example a 0.05 significance level t-value is 3.182, so if the t-value is greater than 3.182 or the corresponding p-value is smaller than 0.05 we will reject the null
+hypothesis (no relationship held between the independent variable and target vector).
+
+**Criteria for Rejection of Null Hypothesis**:
+   Set threshold at a t-value greater than 3.182 or a corresponding p-value less than 0.05 to reject the null hypothesis.
+   Indicates a lack of relationship between the independent variable and the target vector.
+
+ **Acceptance or Rejection of Null Hypothesis**:
+   Despite the relatively small values of the coefficient of determination (R-squared) for all features, the significant t-statistics compel us to reject the null hypothesis, suggesting that the coefficient of the predicted model (i.e., the regression line) is not equal to zero. However, there are exceptions where the t-statistics are notably low, indicating an inability to reject the null hypothesis. For instance, in the cases of citric acid and free sulfur dioxide, the t-statistics are -0.644 and 0.571 respectively, with corresponding p-values of 0.519 and 0.568.
+Notably, only one feature, alcohol concentation, achieves an R-squared value exceeding 0.1, reaching 0.18
+
+ **Overall Conclusion**:
+   - No single feature alone sufficiently explains the variability of wine quality.
+   - Relying solely on simple linear regression may not be an effective approach for modeling the wine data.
+   
+   
+
+## Multiple Linear regression
+
+Based on past experiences with simple linear regression, it has become evident that this method did not yield satisfactory results. Therefore, we have decided to proceed with multiple linear regression for our analysis.
+
+```{r}
+# Fit a multiple linear regression model
+model <- lm(quality ~ ., data = df)
+
+# Print the summary of the model
+summary(model)
+```
+
+### Observation
+
+Estimated coefficients of multiple linear regression provide the information that: A one-unit increase in particular feature is associated with a increase/decrease(depending on sign) of estimated coefficient(beta) units in wine quality.
+
+**Model Evaluation:**
+
+- **Residual Standard Error:** The residual standard error of 0.7514 indicates the average difference between the observed and predicted values. Lower values suggest a better fit of the model to the data.
+
+- **Multiple R-squared:** The coefficient of determination is 28.19%, signifying that 28.19% of the variability in wine quality is explained by the model. A higher R-squared indicates a better fit, but in this case, a significant portion of the variability remains unexplained.
+
+- **Adjusted R-squared:** The adjusted R-squared, at 28.03%, accounts for the number of predictors in the model. It is slightly lower than the multiple R-squared, suggesting that the inclusion of predictors may not be contributing substantially to the explanatory power.
+
+- **F-statistic:** The F-statistic of 174.3 with a p-value less than 2.2e-16 indicates that the overall model is statistically significant. This implies that at least one predictor variable is significantly related to the response variable.
+
+**Conclusion:**
+
+- The model identifies volatile acidity, residual sugar, free sulfur dioxide, density, pH, sulphates, and alcohol as statistically significant predictors of wine quality. Changes in these variables are associated with changes in wine quality.
+
+- Citric acid and total sulfur dioxide, however, do not appear to have a significant impact on wine quality according to the model.
+
+- Despite statistical significance, the model only explains a moderate proportion of the variability in wine quality. This suggests that other factors not included in the current model may influence wine quality. Also it provide the insight that linear regression is not suitable for modelling this data set.
+
+
+### Regression Diagnostic plots
+
+```{r}
+
+par(mfrow = c(2, 2))  
+
+# Plot the diagnostics
+# Residuals vs Fitted Values Plot
+plot(model, which = 1)
+# Normal Q-Q Plot of Residuals
+plot(model, which = 2)
+# Scale-Location Plot
+plot(model, which = 3)
+# Residuals vs Leverage Plot:
+plot(model, which = 5)
+
+```
+
+
+
+**Observations and Inferences:**
+
+1. Residuals vs Fitted Plot:
+   - Observation: Residuals are not random along the fitted values (x-axis). There seems to be a pattern or trend in the residuals, suggesting that the spread of the residuals does not remain consistent across the range of fitted values.
+   - Inference: The assumption of constant variance (homoscedasticity) may be violated. This indicates that the variability of the residuals changes as the predicted wine quality values change.
+
+2. Normal Q-Q Plot of Residuals:
+   - Observation: Residuals are not perfectly aligned with the y=x line. They are deviated on both extremes, indicating departures from normality in the distribution of residuals.
+   - Inference: The assumption of normality of residuals may be violated. This suggests that the residuals do not follow a perfectly normal distribution, which can impact the accuracy of statistical inferences made using the regression model.
+   
+3. Scale-Location Plot (Spread-Location Plot):
+   - Observation: Similar to the Residuals vs Fitted plot, the spread of residuals is not consistent across the range of fitted values.
+   - Inference: The observation suggest the indication of heteroscedasticity, where the spread of residuals varies systematically with the predicted values. This strengthens the need to address the violation of the constant variance assumption in the regression model.
+
+4. Residuals vs Leverage Plot:
+   - Observation: There are many points that are far from the x-axis (leverage = 0), indicating potentially influential observations.
+   - Inference: The presence of outliers or influential points suggests that certain observations disproportionately influence the estimated regression coefficients. These influential points may have a significant impact on the regression model's predictions and should be carefully examined to assess their validity and potential effects on the model's performance.
+
+
+   
+   
+## Logistic Regression
+
+Previously, our attempts at predicting wine quality using linear models didn't work well. So, we're changing our approach. Instead of predicting the exact quality score, we're now simplifying the problem to just two categories: good wine and bad wine. We've created a new feature called "wine_quality" that labels each wine as either good (quality score above 6) or bad (quality score 6 or below). We'll use logistic regression, a type of statistical model, to analyze this new classification problem and predict whether a wine is good or bad based on its features.
+```{r}
+# Load the required libraries
+library(caret)
+library(pROC)
+
+
+data <- df %>%
+  mutate(wine_quality = ifelse(quality > 6, 1, 0)) %>%
+  select(-quality)  # Remove the original quality column
+
+# Perform logistic regression
+logistic_model <- glm(wine_quality ~ ., data = data, family = binomial)
+summary(logistic_model)
+
+# Split the data into training and testing sets
+set.seed(123)  #
+train_index <- createDataPartition(data$wine_quality, p = 0.8, list = FALSE)
+train_data <- data[train_index, ]
+test_data <- data[-train_index, ]
+
+# Predict on the test data
+predicted_probabilities <- predict(logistic_model, newdata = test_data, type = "response")
+predicted_classes <- ifelse(predicted_probabilities > 0.5, 1, 0)
+
+# Compute AUC
+roc_obj <- roc(test_data$wine_quality, predicted_probabilities)
+
+auc_value <- auc(roc_obj)
+
+# Plot ROC curve with AUC value
+plot(roc_obj)
+text(0.5, 0.5, paste("AUC =", round(auc_value, 2)), adj = c(0.5, 0.5), col = "blue")
+
+# Create confusion matrix
+conf_matrix <- confusionMatrix(factor(predicted_classes), factor(test_data$wine_quality))
+print(conf_matrix)
+
+
+```
+### Observations and Inferences for Logistic Regression Model:
+
+After modelling we got estimate of parameters, lets observe them one by one:
+
+**Coefficients:**
+Intercept: The intercept coefficient indicates the log odds of the response variable being in the "good" category when all predictor variables are zero. In this case, the intercept is significant (p < 0.001), suggesting that even when all predictor variables are zero, there's a substantial probability of a wine being classified as "good."
+
+Among the predictor variables, several coefficients are statistically significant at conventional levels (indicated by the asterisks ***, **, *). These include fixed.acidity, volatile.acidity, residual.sugar, chlorides, free.sulfur.dioxide, density, pH, and sulphates.These significant coefficients suggest that changes in these predictors have a noticeable impact on the odds of a wine being classified as "good" or "bad".
+
+coefficient for total sulfur dioxide is not statistically significant (p-value > 0.05). This suggests that this predictor may not contribute significantly to the model, similarly alcohol p-value is 0.211, suggesting its lesser impact on wine quality.
+
+**Model fit:**
+The null deviance (5116.8) is like a baseline measure of how much unexplained variation there is when no predictors are used. The residual deviance (4143.2) is a measure of the unexplained variation when predictors are included in the model. If the residual deviance is lower than the null deviance, it suggests that the model with predictors does a better job of explaining the variation in the response variable compared to a model with no predictors.
+
+
+
+**Confusion Matrix:**
+
+   - The confusion matrix provides a summary of the model's predictions compared to the actual values.
+   - There are 729 true negatives (TN), 162 false positives (FP), 38 false negatives (FN), and 50 true positives (TP).
+   
+   - Sensitivity, also known as the true positive rate or recall, measures the proportion of actual positive cases correctly identified by the  model. In this case, sensitivity is 0.9505, indicating that the model correctly identifies 95.05% of the actual positive cases (wines classified as "good").
+   - Specificity measures the proportion of actual negative cases correctly identified by the model. In this case, specificity is 0.2358, indicating that the model correctly identifies only 23.58% of the actual negative cases (wines classified as "bad").
+
+   - The AUC value of 0.8 suggests that the model has good discriminatory power in distinguishing between positive and negative cases.
+   - An AUC of 0.8 indicates that there is an 80% chance that the model will rank a randomly chosen positive instance higher than a randomly chosen negative instance.
+   
+Observations from confusion matrix:
+
+   - The model performs well in terms of sensitivity, correctly identifying the majority of positive cases.
+   - However, the model's specificity is relatively low, indicating that it struggles to accurately identify negative cases.
+   - The AUC value of 0.8 indicates that the model has good discriminatory power overall, but there may be room for improvement, particularly in terms of specificity.
+   - The imbalance in the confusion matrix (higher count of true negatives compared to true positives) suggests that the model may be biased towards predicting negative cases.
+   
+   - While the model shows good performance in terms of sensitivity and AUC, there is a clear trade-off with specificity.
+   
+
+
+**Overall model performance:**
+In comparison to linear regression, logistic regression  provides far better performance in this case.
+Based on the significant coefficients and the model fit statistics, it seems like the logistic regression model developed has good overall performance. This suggests that the predictors included in the model are meaningful in predicting whether a wine is good or bad, and the model fits the data well. 
+
+
+## Conclusion
+
+In this Wine data analysis, we began by delving into the dataset's characteristics through univariate and bivariate analyses, exploring distributions and relationships between features. Initial attempts with simple linear regression, associating each feature individually with wine quality, yielded unsatisfactory results, highlighting the complexity of the relationship.
+
+Moving forward, we embraced multiple linear regression to build a comprehensive model, aiming to capture the combined influence of multiple features on wine quality. Despite our efforts, achieving a high accuracy model remained elusive. Nonetheless, we meticulously conducted regression diagnostics to evaluate model assumptions and identify areas for improvement.
+
+Subsequently, we approached the problem as a classification task, employing logistic regression. This methodology provided a significant improvement, demonstrating promising results in model accuracy. Our analysis encompassed the evaluation of ROC curves and confusion matrices, illuminating the model's discriminative abilities and its efficacy in correctly classifying wines.
+
+In conclusion, logistic regression emerged as a viable approach, offering enhanced predictive capabilities compared to earlier models. While the current results are encouraging, there remains potential for further refinement and enhancement, potentially through the exploration of more sophisticated modeling techniques.
+
